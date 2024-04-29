@@ -103,9 +103,13 @@ async def wall_detection(request: Request):
     pil_image = PIL.Image.open(image)
     image = mp.Image(image_format=mp.ImageFormat.SRGB, data=np.asarray(pil_image))
     re = detector.detect(image).json()
+    max_confidence = 0
     mask = []
     for i in range(len(re['results'])):
-        mask.append(np.asanyarray(re['results'][i][2]).squeeze())
+        score = float(re['results'][i][0].split("(")[-1].split(")")[0])
+        if score > max_confidence:
+            mask = np.asanyarray(re['results'][i][2]).squeeze()
+            max_confidence = score
     return mask, pil_image
 
 
