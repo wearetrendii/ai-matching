@@ -67,7 +67,7 @@ app = FastAPI(
     license_info=None
 )
 
-# beauty matching settings
+# 要改成wall matching的参数
 zilliz_uri = "https://in01-a79e60d0bae2a62.aws-ap-southeast-1.vectordb.zillizcloud.com:19532"
 token = 'db_admin:ContextualCommerceW00t'
 collection_name = 'au_prod_beauty_demo'
@@ -102,14 +102,17 @@ async def wall_detection(request: Request):
     image = io.BytesIO(base64_decoded)
     pil_image = PIL.Image.open(image)
     image = mp.Image(image_format=mp.ImageFormat.SRGB, data=np.asarray(pil_image))
-    mask = detector.detect(image)
+    re = detector.detect(image).json()
+    mask = []
+    for i in range(len(re['results'])):
+        mask.append(np.asanyarray(re['results'][i][2]).squeeze())
     return mask, pil_image
 
 
 @app.post('/wall')
 async def return_wall_res(request: Request):
     try:
-        mask, pil_image = await wall_detection(request)
+        maskes, pil_image = await wall_detection(request)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Detection failed!{e}')
     if not mask:
@@ -118,15 +121,19 @@ async def return_wall_res(request: Request):
     
     # img2gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)  # 转换为灰度图像
     # _, mask = cv2.threshold(img2gray, 175, 255, cv2.THRESH_BINARY)  # 设置阈值，大于175的置为255，小于175的置为0
-    # mask = cv2.bitwise_not(mask)
+    
     img = np.array(pil_image)
     channels = [img[:,:,0], img[:,:,1], img[:,:,2]]
-    avg = [0, 0, 0]
-    for i in range(3):
-        x = np.ma.array(channels[i], mask=mask)
-        avg[i] = int(x.mean())
-    avg = avg[::-1]
-    wall_res = milvus_engine.query_wall(avg)
+    avgs = []
+    for i in range(len(maskes)):
+        mask = 1 - maskes[i]
+        avgs.append([])
+        for i in range(3):
+            x = np.ma.array(channels[i], mask=mask)
+            avgs[-1][i] = int(x.mean())
+    wall_res = []
+    for avg in avgs:
+        wall_res.append(milvus_engine.query_wall(avg))
     res = {'wall': {'products': wall_res}}
 
     return res
