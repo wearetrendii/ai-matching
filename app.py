@@ -67,7 +67,6 @@ app = FastAPI(
     license_info=None
 )
 
-# 要改成wall matching的参数
 zilliz_uri = "https://in01-a79e60d0bae2a62.aws-ap-southeast-1.vectordb.zillizcloud.com:19532"
 token = 'db_admin:ContextualCommerceW00t'
 collection_name = 'au_prod_wall_demo'
@@ -103,38 +102,41 @@ async def wall_detection(request: Request):
     pil_image = PIL.Image.open(image)
     image = mp.Image(image_format=mp.ImageFormat.SRGB, data=np.asarray(pil_image))
     re = detector.detect(image).json()
-    max_confidence = 0
-    mask = []
-    for i in range(len(re['results'])):
-        score = float(re['results'][i][0].split("(")[-1].split(")")[0])
-        if score > max_confidence:
-            mask = np.asanyarray(re['results'][i][2]).squeeze()
-            max_confidence = score
-    return mask, pil_image
+    # max_confidence = 0
+    # mask = []
+    # for i in range(len(re['results'])):
+    #     score = float(re['results'][i][0].split("(")[-1].split(")")[0])
+    #     if score > max_confidence:
+    #         mask = np.asanyarray(re['results'][i][2]).squeeze()
+    #         max_confidence = score
+    # return mask, pil_image
+    return re
+
 
 
 @app.post('/wall')
 async def return_wall_res(request: Request):
     try:
-        maskes, pil_image = await wall_detection(request)
+        avg = await wall_detection(request)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Detection failed!{e}')
-    if not mask:
+    if not avg:
         raise HTTPException(status_code=500,
                             detail=f'Detection failed! Got empty wall color bbox')
     
-    img = np.array(pil_image)
-    channels = [img[:,:,0], img[:,:,1], img[:,:,2]]
-    avgs = []
-    for i in range(len(maskes)):
-        mask = 1 - maskes[i]
-        avgs.append([])
-        for i in range(3):
-            x = np.ma.array(channels[i], mask=mask)
-            avgs[-1][i] = int(x.mean())
-    wall_res = []
-    for avg in avgs:
-        wall_res.append(milvus_engine.query_wall(avg))
+    # img = np.array(pil_image)
+    # channels = [img[:,:,0], img[:,:,1], img[:,:,2]]
+    # avgs = []
+    # for i in range(len(maskes)):
+    #     mask = 1 - maskes[i]
+    #     avgs.append([])
+    #     for i in range(3):
+    #         x = np.ma.array(channels[i], mask=mask)
+    #         avgs[-1][i] = int(x.mean())
+    # wall_res = []
+    # for avg in avgs:
+    #     wall_res.append(milvus_engine.query_wall(avg))
+    wall_res = milvus_engine.query_wall(avg)
     res = {'wall': {'products': wall_res}}
 
     return res
