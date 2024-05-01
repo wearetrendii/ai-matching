@@ -70,7 +70,7 @@ app = FastAPI(
 zilliz_uri = "https://in01-a79e60d0bae2a62.aws-ap-southeast-1.vectordb.zillizcloud.com:19532"
 token = 'db_admin:ContextualCommerceW00t'
 collection_name = 'au_prod_wall_demo'
-num_res = 5
+num_res = 3
 
 # initial WallMatching
 wm = WallMatching(zilliz_uri, token, collection_name, num_res)

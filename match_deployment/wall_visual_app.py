@@ -16,22 +16,6 @@ def draw_bbox_on_image(image_path, bbox):
         draw.rectangle(bbox, outline="red", width=3)
         return img
 
-
-def get_eye_shadow_bbox(payload_json):
-    detect_url = 'http://52.62.40.78:8020/invocations'
-    headers = {'Content-Type': 'application/json'}
-    try:
-        response = requests.request("POST", detect_url, headers=headers, json=payload_json, timeout=10)
-        response_json = response.json()
-        bbox = response_json['eysshadows']['eyeshadow_bbox']
-    except Exception as e:
-        print(f"Error during API call: {e}")
-        return None
-    if not bbox:
-        return None
-    return bbox
-
-
 def get_b64_payload(file_path):
     with open(file_path, 'rb') as f:
         encoded_image = base64.b64encode(f.read()).decode('utf-8')
@@ -39,9 +23,9 @@ def get_b64_payload(file_path):
         return payload_json
 
 
-def get_beauty_res(payload_json, beauty_api_url):
+def get_wall_res(payload_json, wall_api_url):
     headers = {'Content-Type': 'application/json'}
-    response = requests.request("POST", beauty_api_url, headers=headers, json=payload_json, timeout=10)
+    response = requests.request("POST", wall_api_url, headers=headers, json=payload_json, timeout=10)
     if response.status_code != 200:
         raise Exception('API failed')
     res = response.json()
@@ -49,8 +33,6 @@ def get_beauty_res(payload_json, beauty_api_url):
 
 
 def show_res(res):
-
-
     images = []
     for prod in res:
         # Simplified the try/except block
@@ -72,7 +54,6 @@ def show_res(res):
         cols = [st.beta_columns(1)[0] for _ in range(len(images))]
 
 
-
     for col, img in zip(cols, images):
         if len(res) > 1:
             col.image(img, use_column_width=True)
@@ -82,48 +63,29 @@ def show_res(res):
 
 
 def main():
-    beauty_api_url = 'http://52.62.40.78:8020/beauty'
-    image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff'}
-    iamge_path = "../all_images"
 
-    for file_name in os.listdir(iamge_path):
+    # 参数改一下
+    wall_api_url = 'http://52.62.40.78:8020/beauty'
+    image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff'}
+    image_path = "../all_images"
+
+    for file_name in os.listdir(image_path):
         print(f'doing: {file_name}')
         # st.markdown("---")
         if not any(file_name.lower().endswith(ext) for ext in image_extensions): continue
-        file_path = os.path.join(iamge_path, file_name)
+        file_path = os.path.join(image_path, file_name)
 
         payload_json = get_b64_payload(file_path)
         try:
-            res = get_beauty_res(payload_json, beauty_api_url)
-            # bbox = get_eye_shadow_bbox(payload_json)
-            # bbox = tuple(map(float, bbox.values()))
+            res = get_wall_res(payload_json, wall_api_url)
         except:
             print(file_name)
             continue
 
         try:
-            lipstick_res = res['lipsticks']
-            # original_img_with_bbox = draw_bbox_on_image(file_path, bbox)
             st.image(file_path, caption=file_name, width=400)
             st.text('lipsticks')
-            show_res(lipstick_res)
-        except:
-            print(file_name)
-            continue
-
-        try:
-            eyeshadows_res = res['eyeshadows']
-            st.text('eyeshadows')
-            show_res(eyeshadows_res)
-        except:
-            print(file_name)
-            continue
-
-        try:
-
-            blushes_res = res['blushes']
-            st.text('blushes')
-            show_res(blushes_res)
+            show_res(res)
         except:
             print(file_name)
             continue
