@@ -11,8 +11,8 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-from wall_matching.match_deployment.wall_api import WallMatching
-from wall_matching.match_deployment.milvus import MilvusSearchEngine
+from match_deployment.wall_api import WallMatching
+from match_deployment.milvus import MilvusSearchEngine
 
 FORMAT = ('%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] '
           '[dd.service=%(dd.service)s dd.env=%(dd.env)s dd.version=%(dd.version)s dd.trace_id=%(dd.trace_id)s dd.span_id=%(dd.span_id)s] '
@@ -70,7 +70,7 @@ app = FastAPI(
 # 要改成wall matching的参数
 zilliz_uri = "https://in01-a79e60d0bae2a62.aws-ap-southeast-1.vectordb.zillizcloud.com:19532"
 token = 'db_admin:ContextualCommerceW00t'
-collection_name = 'au_prod_beauty_demo'
+collection_name = 'au_prod_wall_demo'
 num_res = 5
 
 # initial WallMatching
@@ -122,9 +122,6 @@ async def return_wall_res(request: Request):
     if not mask:
         raise HTTPException(status_code=500,
                             detail=f'Detection failed! Got empty wall color bbox')
-    
-    # img2gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)  # 转换为灰度图像
-    # _, mask = cv2.threshold(img2gray, 175, 255, cv2.THRESH_BINARY)  # 设置阈值，大于175的置为255，小于175的置为0
     
     img = np.array(pil_image)
     channels = [img[:,:,0], img[:,:,1], img[:,:,2]]

@@ -25,7 +25,7 @@ class MilvusSearchEngine:
             # 这里也要根据milvus具体情况改一下
             "output_fields": ['unique_id', 'retailer_id', 'brand', 'price', 'currency', 'image', 'product_url',
                               'product_info'],
-            "expr": f'category in ["lipstick"]'
+            "expr": f'category in ["wall paint"]'
         }
         product_infos = []
         results = self.collection.search(**search_param)
@@ -47,6 +47,6 @@ if __name__ == "__main__":
     # 这里需要根据具体存储情况改一下
     zilliz_uri = "https://in01-a79e60d0bae2a62.aws-ap-southeast-1.vectordb.zillizcloud.com:19532"
     token = 'db_admin:ContextualCommerceW00t'
-    collection_name = 'au_prod_beauty_v1'
+    collection_name = 'au_prod_wall_demo'
     
     es_engine = MilvusSearchEngine(uri=zilliz_uri, token=token, collection_name=collection_name, size=20)

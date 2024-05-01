@@ -2,7 +2,7 @@
 beauty matching api: calling beauty od, get color from the bbox, search similar products in milvus.
 '''
 import numpy as np
-from wall_matching.match_deployment.milvus import MilvusSearchEngine
+from match_deployment.milvus import MilvusSearchEngine
 
 
 class WallMatching:
@@ -10,7 +10,7 @@ class WallMatching:
         self.milvus_engine = MilvusSearchEngine(uri=zilliz_uri, token=token, collection_name=collection_name,
                                                 size=num_res)
         # 目录名字暂定是"wall"
-        self.wall_target_colors_with_id = self.milvus_engine.get_wall_target_colors('wall')
+        self.wall_target_colors_with_id = self.milvus_engine.get_wall_target_colors('wall paint')
 
     def get_wall_ave_color(self, wall_colors):
         colors = [l for wall_color_list in wall_colors for l in wall_color_list]
