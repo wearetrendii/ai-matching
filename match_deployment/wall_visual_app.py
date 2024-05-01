@@ -154,10 +154,8 @@ def main():
         if len(avg) < 3:
             st.text('failed to detect')
             continue
-        
+
         wall_res = milvus_engine.query_wall(avg)
-        for prod in wall_res:
-            st.text(prod['image'])
 
         try:
             st.image(file_path, caption=file_name, width=400)
