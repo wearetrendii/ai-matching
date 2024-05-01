@@ -150,6 +150,10 @@ def main():
         except:
             print(file_name)
             continue
+
+        if len(avg) < 3:
+            st.text('failed to detect')
+            continue
         
         wall_res = milvus_engine.query_wall(avg)
         for prod in wall_res:
