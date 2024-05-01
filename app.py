@@ -122,7 +122,7 @@ async def return_wall_res(request: Request):
         raise HTTPException(status_code=500, detail=f'Detection failed!{e}')
     if not avg:
         raise HTTPException(status_code=500,
-                            detail=f'Detection failed! Got empty wall color bbox')
+                            detail=f'Detection failed!')
     
     # img = np.array(pil_image)
     # channels = [img[:,:,0], img[:,:,1], img[:,:,2]]
