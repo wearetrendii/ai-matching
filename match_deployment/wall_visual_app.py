@@ -6,6 +6,7 @@ import os
 from io import BytesIO
 import math
 import requests
+import json
 import streamlit as st
 from PIL import Image
 from queue import PriorityQueue
@@ -17,7 +18,7 @@ from pymilvus import (
 class MilvusSearchEngine:
     def __init__(self, uri=None, token=None, collection_name=None, size=None):
         self.query_size = size
-        self.metric_type = 'L2'
+        self.metric_type = 'IP'
         self.topk = size
         connections.connect(uri=uri,
                             token=token,
@@ -60,7 +61,6 @@ def get_b64_payload(file_path):
         payload_json = {"instances": [{"image_bytes": {"b64": encoded_image}}]}
         return payload_json
 
-
 def get_wall_res(payload_json, wall_api_url):
     headers = {'Content-Type': 'application/json'}
     response = requests.request("POST", wall_api_url, headers=headers, json=payload_json, timeout=10)
@@ -68,7 +68,6 @@ def get_wall_res(payload_json, wall_api_url):
         raise Exception('API failed')
     res = response.json()
     return res
-
 
 def show_res(res):
     images = []
@@ -232,6 +231,13 @@ def CIEDE2000(Lab_1, Lab_2):
     dE_00 = math.sqrt(f_L**2 + f_C**2 + f_H**2 + R_T * f_C * f_H)
     return dE_00
 
+def post_query(url, body, headers):
+    # get query results through url requests
+    re = requests.post(url=url, json=body, headers=headers)
+    results = json.loads(re.text)['data']
+    return results
+
+
 def main():
 
     wall_api_url = "https://47275qn2fe.execute-api.ap-southeast-2.amazonaws.com/beta/segment"
@@ -242,6 +248,9 @@ def main():
     token = 'db_admin:ContextualCommerceW00t'
     collection_name = 'au_prod_wall_demo'
     num_res = 3
+
+    headers = {"Authorization":"db_admin:ContextualCommerceW00t"}
+    url = "https://in01-a79e60d0bae2a62.aws-ap-southeast-1.vectordb.zillizcloud.com:19532/v1/vector/search"
 
     milvus_engine = MilvusSearchEngine(uri=zilliz_uri, token=token, collection_name=collection_name,
                                                     size=num_res)
@@ -264,8 +273,15 @@ def main():
         if len(avg) < 3:
             st.text('failed to detect')
             continue
-
-        wall_res = milvus_engine.query_wall(avg)
+        
+        body = {
+        "collectionName": "au_prod_wall_demo",
+        "vector": avg,
+        "outputFields": ["unique_id", "retailer_id", "brand","price","currency","image","product_url","product_info","colour_value", "distance"],
+        "limit":num_res
+        }
+        # wall_res = milvus_engine.query_wall(avg)
+        wall_res = post_query(url=url, body=body, headers=headers)
         avg_lab = rgb2lab([float(i) for i in avg])
         wall_res_lab = milvus_engine_lab.query_wall(avg_lab, True)
         temp = PriorityQueue()
@@ -280,6 +296,7 @@ def main():
         try:
             img = Image.open(file_path)
             st.image(img, caption=file_name, width=400)
+            st.text(avg)
             st.text("RGB matching results")
             show_res(wall_res)
             st.text("LAB matching results")
