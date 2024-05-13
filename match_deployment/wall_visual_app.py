@@ -18,7 +18,7 @@ from pymilvus import (
 class MilvusSearchEngine:
     def __init__(self, uri=None, token=None, collection_name=None, size=None):
         self.query_size = size
-        self.metric_type = 'IP'
+        self.metric_type = 'L2'
         self.topk = size
         connections.connect(uri=uri,
                             token=token,
@@ -33,13 +33,13 @@ class MilvusSearchEngine:
             "anns_field": vector_field,
             "param": {"metric_type": self.metric_type},
             "limit": self.topk,
-            # 这里也要根据milvus具体情况改一下
-            "output_fields": ['unique_id', 'retailer_id', 'brand', 'price', 'currency', 'image', 'product_url',
-                              'product_info'],
+            "output_fields": ['unique_id', 'retailer_id', 'brand', 'price', 'currency', 'image', 'product_url'],
             "expr": f'category in ["wall paint"]'
         }
         if lab:
             search_param["output_fields"].append("colour_value_lab")
+        else:
+            search_param["output_fields"].append("colour_value")
         product_infos = []
         results = self.collection.search(**search_param)
         for result in results:
@@ -71,6 +71,7 @@ def get_wall_res(payload_json, wall_api_url):
 
 def show_res(res):
     images = []
+    distances = []
     for prod in res:
         # Simplified the try/except block
         try:
@@ -79,6 +80,7 @@ def show_res(res):
             img_bytes = response.content
             img = Image.open(BytesIO(img_bytes))
             images.append(img)
+            distances.append(round(prod.get('distance'),4))
         except:
             continue
 
@@ -91,75 +93,13 @@ def show_res(res):
         cols = [st.columns(1)[0] for _ in range(len(images))]
 
 
-    for col, img in zip(cols, images):
+    for col, img, dis in zip(cols, images, distances):
         if len(res) > 1:
             col.image(img, use_column_width=True)
+            col.header(dis)
         else:
             # When fewer than 4 images, let width decide size
             col.image(img, width=150)
-
-def rgb2lab(rgb):
-    r = rgb[0] / 255.0  # rgb range: 0 ~ 1
-    g = rgb[1] / 255.0
-    b = rgb[2] / 255.0
- 
-    # gamma 2.2
-    if r > 0.04045:
-        r = pow((r + 0.055) / 1.055, 2.4)
-    else:
-        r = r / 12.92
- 
-    if g > 0.04045:
-        g = pow((g + 0.055) / 1.055, 2.4)
-    else:
-        g = g / 12.92
- 
-    if b > 0.04045:
-        b = pow((b + 0.055) / 1.055, 2.4)
-    else:
-        b = b / 12.92
- 
-    # sRGB
-    X = r * 0.436052025 + g * 0.385081593 + b * 0.143087414
-    Y = r * 0.222491598 + g * 0.716886060 + b * 0.060621486
-    Z = r * 0.013929122 + g * 0.097097002 + b * 0.714185470
- 
-    # XYZ range: 0~100
-    X = X * 100.000
-    Y = Y * 100.000
-    Z = Z * 100.000
- 
-    # Reference White Point
- 
-    ref_X = 96.4221
-    ref_Y = 100.000
-    ref_Z = 82.5211
- 
-    X = X / ref_X
-    Y = Y / ref_Y
-    Z = Z / ref_Z
- 
-    # Lab
-    if X > 0.008856:
-        X = pow(X, 1 / 3.000)
-    else:
-        X = (7.787 * X) + (16 / 116.000)
- 
-    if Y > 0.008856:
-        Y = pow(Y, 1 / 3.000)
-    else:
-        Y = (7.787 * Y) + (16 / 116.000)
- 
-    if Z > 0.008856:
-        Z = pow(Z, 1 / 3.000)
-    else:
-        Z = (7.787 * Z) + (16 / 116.000)
- 
-    Lab_L = round((116.000 * Y) - 16.000, 2)
-    Lab_a = round(500.000 * (X - Y), 2)
-    Lab_b = round(200.000 * (Y - Z), 2)
- 
-    return [Lab_L, Lab_a, Lab_b]
 
 def CIEDE2000(Lab_1, Lab_2):
     '''Calculates CIEDE2000 color distance between two CIE L*a*b* colors'''
@@ -231,11 +171,6 @@ def CIEDE2000(Lab_1, Lab_2):
     dE_00 = math.sqrt(f_L**2 + f_C**2 + f_H**2 + R_T * f_C * f_H)
     return dE_00
 
-def post_query(url, body, headers):
-    # get query results through url requests
-    re = requests.post(url=url, json=body, headers=headers)
-    results = json.loads(re.text)['data']
-    return results
 
 
 def main():
@@ -248,9 +183,6 @@ def main():
     token = 'db_admin:ContextualCommerceW00t'
     collection_name = 'au_prod_wall_demo'
     num_res = 3
-
-    headers = {"Authorization":"db_admin:ContextualCommerceW00t"}
-    url = "https://in01-a79e60d0bae2a62.aws-ap-southeast-1.vectordb.zillizcloud.com:19532/v1/vector/search"
 
     milvus_engine = MilvusSearchEngine(uri=zilliz_uri, token=token, collection_name=collection_name,
                                                     size=num_res)
@@ -265,40 +197,33 @@ def main():
 
         payload_json = get_b64_payload(file_path)
         try:
-            avg = get_wall_res(payload_json, wall_api_url)
+            avg_lab = get_wall_res(payload_json, wall_api_url)["seg_output2"]
         except:
             print(file_name)
             continue
 
-        if len(avg) < 3:
+        if len(avg_lab) < 3:
             st.text('failed to detect')
             continue
         
-        body = {
-        "collectionName": "au_prod_wall_demo",
-        "vector": avg,
-        "outputFields": ["unique_id", "retailer_id", "brand","price","currency","image","product_url","product_info","colour_value", "distance"],
-        "limit":num_res
-        }
         # wall_res = milvus_engine.query_wall(avg)
-        wall_res = post_query(url=url, body=body, headers=headers)
-        avg_lab = rgb2lab([float(i) for i in avg])
         wall_res_lab = milvus_engine_lab.query_wall(avg_lab, True)
         temp = PriorityQueue()
         for res in wall_res_lab:
+            res['distance'] = math.dist(avg_lab, res['colour_value_lab'])
             score = CIEDE2000(avg_lab, res['colour_value_lab'])
             temp.put((score, res))
         wall_res_lab, i = [], 0
-        while i < num_res and not temp.empty():
+        while i < 5 and not temp.empty():
             wall_res_lab.append(temp.get()[1])
             i += 1
 
         try:
             img = Image.open(file_path)
             st.image(img, caption=file_name, width=400)
-            st.text(avg)
-            st.text("RGB matching results")
-            show_res(wall_res)
+            # st.text(avg)
+            # st.text("RGB matching results")
+            # show_res(wall_res)
             st.text("LAB matching results")
             show_res(wall_res_lab)
         except:
